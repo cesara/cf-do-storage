@@ -1,7 +1,6 @@
-# cf-worker-clocks
+# cf-do-storage
 
-A test Cloudflare worker and durable object which demonstrates that durable object clocks lose time 
-over a series of requests, while worker clocks do not.
+A test Cloudflare worker and durable object which demonstrates that durable object storage will reset after a certain about of time with sustained writes
 
 ## Running Locally
 ```bash

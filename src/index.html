@@ -2,205 +2,69 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>CF Worker and Durable Object Clock Tests</title>
+    <title>CF Worker and Durable Object Storage Tests</title>
   </head>
   <body>
-    <h1>CF Worker and DO Clocks Tests</h1>
+    <h1>CF Worker and DO Storage Tests</h1>
     <div>
       <p>
-        This page demonstrates that a Cloudflare durable-object's clock loses 
-        time across requests, and that the more computation work the 
-        durable-object does, the more time it loses.  It also demonstrates that 
-        a Cloudflare worker's clock does not lose time in this way.
-      </p>
-      <p>
-        This page logs information about the delta between its clock and the 
-        clock of a Cloudflare worker or durable-object as observed over a 
-        series of requests. It has three test cases.
-        In each test case the page sends its current time as reported by 
-        Date.now() every 250ms to a worker (which depending on the test case
-        may forward it to a durable-object).  The worker or durable-object 
-        responds with an array containing the timestamp it received from this 
-        page and its current time as reported by Date.now(), and starts 
-        a configurable amount of async computation work.  This page then 
-        logs the round trip time and the delta between the page and server 
-        timestamps.  
-      </p> 
-      <p> 
-        The three test cases are:
-        <ol>
-          <li>
-            <b>worker-post:</b> time is sent via a POST request which is 
-            responded to by the worker with the worker's time. 
-          </li>
-          <li>
-            <b>do-post:</b> time is sent via a POST request which is responded 
-            to by the durable-object with the durable-object's time.
-          </li>
-          <li>
-            <b>do-websocket:</b> time is sent via a WebSocket message which
-            is responded to by the durable-object via a Websocket message with 
-            the durable-object's time.
-          </li>
-        </ol>
-      </p>
-      <p>
-        Note that for all these cases the round trip time remains steady.
-        For the worker-post test case, the delta between the page and server 
-        timestamps also remains steady, showing no time loss.
-        However, for both do-post and do-websocket, the delta between the page 
-        and server timestamps becomes smaller over time showing time loss.  
-        Increasing the work (i.e. computation) done per request increases the 
-        rate of time loss.
+        This page demonstrates that a Cloudflare durable-object's storage
+        sustained writes will cause a reset.
       </p>
     </div>
     <div>
-      <form action="" method="get">
-        <p>Select test:</p>
-        <input
-          type="radio"
-          id="test-worker-post"
-          name="test"
-          value="worker-post"
-        />
-        <label for="test-worker-post">worker-post</label>
-        <input type="radio" id="test-do-post" name="test" value="do-post" />
-        <label for="test-do-post">do-post</label>
-        <input
-          type="radio"
-          id="test-do-websocket"
-          name="test"
-          value="do-websocket"
-        />
-        <label for="do-websocket">do-websocket</label>
-
-        <p>Select work per request/message:</p>
-        <input type="radio" id="work-0" name="work" value="0" />
-        <label for="work-0">0</label>
-        <input type="radio" id="work-100" name="work" value="100" />
-        <label for="work-100">100</label>
-        <input type="radio" id="work-1000" name="work" value="1000" />
-        <label for="work-1000">1000</label>
-        <input type="radio" id="work-10000" name="work" value="10000" />
-        <label for="work-10000">10000</label>
-        <input type="radio" id="work-100000" name="work" value="100000" />
-        <label for="work-100000">100000</label>
-
-        <p></p>
-        <br /><input type="submit" value="Submit" />
-      </form>
+      <input type="button" value="Run Test" onclick="testDoWebSocket();" />
+      <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
     <h2>Log (new messages are prepended)</h2>
     <pre id="log"></pre>
+    <textarea id="textLog" rows="40" cols="200" readonly></textarea>
 
     <script>
-      const DEFAULT_TEST_CASE = "worker-post";
-      const DEFAULT_WORK = 0;
-      const MAX_ITERATIONS = 100;
+      const textLog = document.getElementById("textLog"); // Add this line
 
-      const params = new URL(location.href).searchParams;
-      const testCase = params.get("test") ?? DEFAULT_TEST_CASE;
-      const work = params.get("work") ?? DEFAULT_WORK;
-      const intervalMs = 250;
-
-      document.getElementById(`test-${testCase}`).checked = true;
-      document.getElementById(`work-${work}`).checked = true;
-
-      const logDiv = document.getElementById("log");
       function log(...msgParts) {
-        console.log(...msgParts);
-        const msgDiv = document.createElement("div");
-        msgDiv.innerText = msgParts.join(" ");
-        logDiv.prepend(msgDiv);
+        const newMessage = msgParts.join(" ") + "\n";
+        let currentLogContent = textLog.value.split("\n"); 
+        currentLogContent.unshift(newMessage); 
+        if (currentLogContent.length > 2000) {
+          currentLogContent = currentLogContent.slice(0, 2000); 
+        }
+        textLog.value = currentLogContent.join("\n"); 
       }
+      
+      let ws;
 
-      function logResponse(responseData) {
-        const now = Date.now();
-        const {i, pageTimestamp, serverTimestamp, serverID} = responseData;
-        log(
-          testCase,
-          "| serverID",
-          serverID,
-          "| i",
-          i.toString().padStart(3),
-          "| now",
-          now,
-          "| pageTimestamp",
-          pageTimestamp,
-          "| serverTimestamp",
-          serverTimestamp,
-          "| now - pageTimestamp (round trip)",
-          (now - pageTimestamp).toString().padStart(5),
-          "| serverTimestamp - pageTimestamp",
-          (serverTimestamp - pageTimestamp).toString().padStart(5),
-          "|"
-        );
-      }
-  
       function createRequestBody(i, pageTimestamp) {
         return JSON.stringify({ i, pageTimestamp });
       }
-      
+
+
       function testDoWebSocket() {
         const url = new URL(location.href);
         url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
         url.pathname = `/do-websocket`;
-        url.search = '';
-        url.searchParams.set("work", work);
-        const ws = new WebSocket(url.toString());
+        ws = new WebSocket(url.toString());
         ws.addEventListener("message", async (e) => {
-          if (e.data === "connected") {
-            let i = 0;
-            const intervalID = setInterval(() => {
-              i++;
-              if (i >= MAX_ITERATIONS) {
-                log('Done');
-                clearInterval(intervalID);
-                return;
-              }
-              ws.send(createRequestBody(i, Date.now()));
-            }, intervalMs);
+          if (e.data === "ping") {
+            log(e.data);
           } else if (typeof e.data === "string") {
-            logResponse(JSON.parse(e.data));
+            log(e.data);
           }
         });
-        ws.addEventListener("close", async (e) => {
-          log("web socket close", e);
-        });
-      }
 
-      function testPost() {
-        const url = new URL(location.href);
-        url.pathname = `/${testCase}`;
-        url.search = '';
-        url.searchParams.set("work", work);
-        let i = 0;
-        const intervalID = setInterval(async () => {
-          i++;
-          if (i >= MAX_ITERATIONS) {
-            log('Done');
-            clearInterval(intervalID);
-            return;
-          }
-          const response = await fetch(
-            new Request(url.toString(), {
-              method: "post",
-              body: createRequestBody(i, Date.now()),
-            })
-          );
-          logResponse(await response.json());
-        }, intervalMs);
-      }
 
-      switch (testCase) {
-        case "worker-post":
-        case "do-post":
-          testPost();
-          break;
-        case "do-websocket":
-          testDoWebSocket();
-          break;
-      }
+    }
+
+    function cancelAlarm() {
+    if (ws) {
+      //send message to websocket
+      ws.send("cancelAlarm");
+    }
+  }
+    
+
+      
     </script>
   </body>
 </html>

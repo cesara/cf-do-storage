@@ -1,13 +1,14 @@
-name = "cf-worker-clocks-test"
+name = "cf-storage-test"
 main = "src/index.ts"
 compatibility_date = "2022-06-03"
+logpush = true
 
 [durable_objects]
 bindings = [
-  { name = "clocksTestDO", class_name = "ClocksTestDO" },
+  { name = "storageTestDO", class_name = "StorageTestDO" },
 ]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ClocksTestDO"]
+new_classes = ["StorageTestDO"]
 
