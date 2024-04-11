@@ -17,8 +17,10 @@ const worker = {
     }
     const url = new URL(request.url);
     const forward = () => {
+      const roomID = url.searchParams.get("roomID")
+      if(!roomID) return new Response("roomID is required", { status: 400 });
       return env.storageTestDO
-        .get(env.storageTestDO.idFromName("storage-tests-singleton"))
+        .get(env.storageTestDO.idFromName(roomID))
         .fetch(request);
     };
     switch (url.pathname) {

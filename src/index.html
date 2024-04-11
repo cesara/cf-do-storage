@@ -2,7 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      globalThis.roomIDReady = new Promise((resolve) => {
+        globalThis.resolveRoomID = resolve;
+      });
+    </script>
     <title>CF Worker and Durable Object Storage Tests</title>
+
+    <script type="module">
+      import { nanoid } from "https://cdnjs.cloudflare.com/ajax/libs/nanoid/5.0.7/index.browser.js";
+      globalThis.roomID = nanoid();
+      globalThis.resolveRoomID();
+    </script>
   </head>
   <body>
     <h1>CF Worker and DO Storage Tests</h1>
@@ -20,20 +31,21 @@
         value="100"
         onchange="updateQueryParams('keySize', this.value)"
       />
-      <label for="nextAlarm">Delay Before Next Alarm (ms):</label>
+      <label for="nextAlarm">Next Alarm (ms):</label>
       <input
         type="number"
         id="nextAlarm"
         value="86"
         onchange="updateQueryParams('nextAlarm', this.value)"
       />
+      <label for="roomIDInput">RoomID:</label>
+      <input type="text" id="roomIDInput" readonly />
       <input type="button" value="Run Test" onclick="testDoWebSocket();" />
       <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
     <h2>Log (new messages are prepended)</h2>
     <pre id="log"></pre>
     <textarea id="textLog" rows="40" cols="200" readonly></textarea>
-
     <script>
       function updateQueryParams(param, value) {
         const url = new URL(window.location.href);
@@ -54,6 +66,9 @@
         "nextAlarm",
         "86"
       );
+      globalThis.roomIDReady.then(() => {
+        document.getElementById("roomIDInput").value = globalThis.roomID;
+      });
 
       const textLog = document.getElementById("textLog"); // Add this line
 
@@ -66,7 +81,6 @@
 
       let ws;
 
-
       function testDoWebSocket() {
         const wsUrl = new URL(location.href);
         wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
@@ -74,6 +88,7 @@
         ["keySize", "nextAlarm"].forEach((param) =>
           wsUrl.searchParams.set(param, getQueryParam(param, "100"))
         );
+        wsUrl.searchParams.set("roomID", globalThis.roomID);
 
         ws = new WebSocket(wsUrl.toString());
         ws.addEventListener("message", async (e) => {
