@@ -39,6 +39,8 @@ class StorageTestDO implements DurableObject {
   private readonly _doID: string;
   #storage: DurableObjectStorage;
   #ws: WebSocket | null = null;
+  #keySize = 100;
+  #nextAlarm = 86;
   constructor(state: DurableObjectState) {
     this._doID = crypto.randomUUID();
     this.#storage = state.storage;
@@ -57,7 +59,8 @@ class StorageTestDO implements DurableObject {
     let i = 0;
     let dataSize = 0;
     const startTime = Date.now();
-    while (i < 100) {
+    const puts = [];
+    while (i < this.#keySize) {
       //~20bytes of data x 100
       const data = JSON.stringify({
         x: i,
@@ -65,10 +68,17 @@ class StorageTestDO implements DurableObject {
         data: "kifwpkieqojgsyqwodopjjtrhfndobkcbxzzgzdzxrqcqrcedrholhhdobkyasxupqqvjqrvszjktosodmxauaihmdzlsqbswavrkiwasytvkwhnmbkhcervqeikvcghehetllbzefglynjqtakadlggotqbfcymrmxfkexlwdibsmeabteyegvvwamudwfwpykzskla",
       });
       dataSize += new TextEncoder().encode(data).length; // Calculate and add the size of the current data.
-      await this.#storage.put(i.toString(), data);
+      puts.push(
+        await this.#storage.put(i.toString(), data, {
+          allowUnconfirmed: false,
+          noCache: true,
+          allowConcurrency: true,
+        })
+      );
       i++;
     }
-
+    Promise.all(puts);
+    await this.#storage.sync();
     const endTime = Date.now();
     const duration = endTime - startTime;
     if (this.#ws) {
@@ -76,7 +86,7 @@ class StorageTestDO implements DurableObject {
         JSON.stringify({ dataSize, count: i, startTime, endTime, duration })
       );
     }
-    this.#storage.setAlarm(Date.now() + 86);
+    this.#storage.setAlarm(Date.now() + this.#nextAlarm);
   }
 
   createResponseBody(
@@ -95,6 +105,11 @@ class StorageTestDO implements DurableObject {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected websocket", { status: 400 });
     }
+
+    const url = new URL(request.url);
+    this.#keySize = parseInt(url.searchParams.get("keySize") ?? "100");
+    this.#nextAlarm = parseInt(url.searchParams.get("nextAlarm") ?? "86");
+
     const pair = new WebSocketPair();
     this.#ws = pair[1]; // Assign the WebSocket object to the class property.
 
@@ -102,6 +117,8 @@ class StorageTestDO implements DurableObject {
 
     this.#ws.addEventListener("message", async ({ data }) => {
       if (data === "cancelAlarm") {
+        console.log("before cancelled  storage list:");
+        console.log(await this.#storage.list());
         await this.#storage.deleteAlarm();
         if (this.#ws)
           this.#ws.send(JSON.stringify({ message: "Alarm cancelled." }));

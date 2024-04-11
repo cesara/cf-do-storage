@@ -13,6 +13,20 @@
       </p>
     </div>
     <div>
+      <label for="keySize">Storage Key Size:</label>
+      <input
+        type="number"
+        id="keySize"
+        value="100"
+        onchange="updateQueryParams('keySize', this.value)"
+      />
+      <label for="nextAlarm">Delay Before Next Alarm (ms):</label>
+      <input
+        type="number"
+        id="nextAlarm"
+        value="86"
+        onchange="updateQueryParams('nextAlarm', this.value)"
+      />
       <input type="button" value="Run Test" onclick="testDoWebSocket();" />
       <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
@@ -21,30 +35,50 @@
     <textarea id="textLog" rows="40" cols="200" readonly></textarea>
 
     <script>
+      function updateQueryParams(param, value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set(param, value);
+        window.history.pushState({}, "", url);
+      }
+
+      function getQueryParam(param, defaultValue) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(param) || defaultValue;
+      }
+
+      document.getElementById("keySize").value = getQueryParam(
+        "keySize",
+        "100"
+      );
+      document.getElementById("nextAlarm").value = getQueryParam(
+        "nextAlarm",
+        "86"
+      );
+
       const textLog = document.getElementById("textLog"); // Add this line
 
       function log(...msgParts) {
-        const newMessage = msgParts.join(" ") + "\n";
-        let currentLogContent = textLog.value.split("\n"); 
-        currentLogContent.unshift(newMessage); 
-        if (currentLogContent.length > 2000) {
-          currentLogContent = currentLogContent.slice(0, 2000); 
-        }
-        textLog.value = currentLogContent.join("\n"); 
+        textLog.value = `${msgParts.join(" ")}\n${textLog.value}`;
+        const lines = textLog.value.split("\n");
+        if (lines.length > 2000)
+          textLog.value = lines.slice(0, 2000).join("\n");
       }
-      
+
       let ws;
 
       function createRequestBody(i, pageTimestamp) {
         return JSON.stringify({ i, pageTimestamp });
       }
 
-
       function testDoWebSocket() {
-        const url = new URL(location.href);
-        url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-        url.pathname = `/do-websocket`;
-        ws = new WebSocket(url.toString());
+        const wsUrl = new URL(location.href);
+        wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+        wsUrl.pathname = "/do-websocket";
+        ["keySize", "nextAlarm"].forEach((param) =>
+          wsUrl.searchParams.set(param, getQueryParam(param, "100"))
+        );
+
+        ws = new WebSocket(wsUrl.toString());
         ws.addEventListener("message", async (e) => {
           if (e.data === "ping") {
             log(e.data);
@@ -52,19 +86,13 @@
             log(e.data);
           }
         });
+      }
 
-
-    }
-
-    function cancelAlarm() {
-    if (ws) {
-      //send message to websocket
-      ws.send("cancelAlarm");
-    }
-  }
-    
-
-      
+      function cancelAlarm() {
+        if (ws) {
+          ws.send("cancelAlarm");
+        }
+      }
     </script>
   </body>
 </html>
