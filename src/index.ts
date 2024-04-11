@@ -69,7 +69,7 @@ class StorageTestDO implements DurableObject {
       });
       dataSize += new TextEncoder().encode(data).length; // Calculate and add the size of the current data.
       puts.push(
-        await this.#storage.put(i.toString(), data, {
+        this.#storage.put(i.toString(), data, {
           allowUnconfirmed: false,
           noCache: true,
           allowConcurrency: true,

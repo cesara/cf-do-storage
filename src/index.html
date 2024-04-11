@@ -13,7 +13,7 @@
       </p>
     </div>
     <div>
-      <label for="keySize">Storage Key Size:</label>
+      <label for="keySize">Number of Keys:</label>
       <input
         type="number"
         id="keySize"
@@ -66,9 +66,6 @@
 
       let ws;
 
-      function createRequestBody(i, pageTimestamp) {
-        return JSON.stringify({ i, pageTimestamp });
-      }
 
       function testDoWebSocket() {
         const wsUrl = new URL(location.href);
