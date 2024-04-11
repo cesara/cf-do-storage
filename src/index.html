@@ -53,7 +53,7 @@
       <h2>Duration Histogram</h2>
       <canvas
         id="durationHistogram"
-        style="width: 1000px; height: 200px; display: block"
+        style="width: 1400px; height: 200px; display: block"
       ></canvas>
     </div>
     <h2>Log (new messages are prepended)</h2>
@@ -173,7 +173,7 @@
         const minDuration = Math.min(...durations);
         const stepSize = Math.ceil((maxDuration - minDuration) / 10) || 1; // Ensure non-zero step size
         const labels = Array.from(
-          { length: 10 },
+          { length: 200 },
           (_, i) =>
             `${minDuration + i * stepSize} to ${
               minDuration + (i + 1) * stepSize
