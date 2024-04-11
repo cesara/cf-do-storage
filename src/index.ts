@@ -76,7 +76,6 @@ class StorageTestDO implements DurableObject {
         JSON.stringify({ dataSize, count: i, startTime, endTime, duration })
       );
     }
-    console.log("alarm set", Date.now() + 86);
     this.#storage.setAlarm(Date.now() + 86);
   }
 
