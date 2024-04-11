@@ -50,11 +50,12 @@
       <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
     <div>
-      <h2>Runtime</h2>
-      <div id="runtimeDisplay">Runtime: Not Calculated</div>
+      <p>
+      <b><div id="runtimeDisplay">Runtime: Not Calculated</div></b>
+      </p>
     </div>
     <div>
-      <h2>Duration Histogram</h2>
+      <h3>Duration Histogram</h3>
       <div id="maxDurationDisplay">Max Duration: Not Calculated</div>
       <div id="minDurationDisplay">Min Duration: Not Calculated</div>
       <canvas
@@ -99,19 +100,22 @@
       }
 
       let ws;
-      let endTimeDurations = []; 
-      let histogramChart = null; 
-      let maxDuration = Number.MIN_VALUE; 
-      let minDuration = Number.MAX_VALUE; 
+      let endTimeDurations = [];
+      let histogramChart = null;
+      let maxDuration = Number.MIN_VALUE;
+      let minDuration = Number.MAX_VALUE;
       let updateInterval = null;
 
       function testDoWebSocket() {
-        if (updateInterval) clearInterval(updateInterval); 
-        document.getElementById("runtimeDisplay").textContent = "Runtime: Not Calculated";
-        document.getElementById("maxDurationDisplay").textContent = "Max Duration: Not Calculated";
-        document.getElementById("minDurationDisplay").textContent = "Min Duration: Not Calculated";
-        maxDuration = Number.MIN_VALUE; 
-        minDuration = Number.MAX_VALUE; 
+        if (updateInterval) clearInterval(updateInterval);
+        document.getElementById("runtimeDisplay").textContent =
+          "Runtime: Not Calculated";
+        document.getElementById("maxDurationDisplay").textContent =
+          "Max Duration: Not Calculated";
+        document.getElementById("minDurationDisplay").textContent =
+          "Min Duration: Not Calculated";
+        maxDuration = Number.MIN_VALUE;
+        minDuration = Number.MAX_VALUE;
         endTimeDurations = [];
         const wsUrl = new URL(location.href);
         wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
@@ -125,7 +129,14 @@
         const startTime = Date.now();
         updateInterval = setInterval(() => {
           const runtime = Date.now() - startTime;
-          document.getElementById("runtimeDisplay").textContent = `Runtime: ${runtime} ms`;
+          // Update the runtime display every minute
+          runtime > 60000
+            ? (document.getElementById(
+                "runtimeDisplay"
+              ).textContent = `Runtime: ${Math.floor(runtime / 60000)} min`)
+            : (document.getElementById(
+                "runtimeDisplay"
+              ).textContent = `Runtime: ${runtime} ms`);
         }, 1000);
         ws.addEventListener("message", async (e) => {
           if (e.data === "ping") {
@@ -177,7 +188,7 @@
           data: {
             datasets: [
               {
-                label: "",
+                label: "Duration (ms)",
                 data: [],
                 backgroundColor: "rgba(75, 192, 192, 0.2)",
                 borderColor: "rgba(75, 192, 192, 1)",
