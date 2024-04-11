@@ -51,6 +51,8 @@
     </div>
     <div>
       <h2>Duration Histogram</h2>
+      <div id="maxDurationDisplay">Max Duration: Not Calculated</div>
+      <div id="minDurationDisplay">Min Duration: Not Calculated</div>
       <canvas
         id="durationHistogram"
         style="width: 1400px; height: 200px; display: block"
@@ -93,9 +95,10 @@
       }
 
       let ws;
-      let durations = [];
+      let endTimeDurations = []; // Store pairs of {endTime, duration}
       let histogramChart = null; // Global variable to hold the chart instance
-
+      let maxDuration = Number.MIN_VALUE; // Initialize max duration
+      let minDuration = Number.MAX_VALUE; // Initialize min duration
       function testDoWebSocket() {
         const wsUrl = new URL(location.href);
         wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
@@ -112,10 +115,24 @@
           } else if (typeof e.data === "string") {
             log(e.data);
             const data = JSON.parse(e.data);
-            console.log(data);
-            if (data.duration) {
-              durations.push(data.duration);
-              updateHistogram(durations);
+            if (data.duration && data.endTime) {
+              endTimeDurations.push({
+                endTime: data.endTime,
+                duration: data.duration,
+              });
+              if (data.duration > maxDuration) {
+                maxDuration = data.duration;
+                document.getElementById(
+                  "maxDurationDisplay"
+                ).textContent = `Max Duration: ${maxDuration} ms`;
+              }
+              if (data.duration < minDuration) {
+                minDuration = data.duration;
+                document.getElementById(
+                  "minDurationDisplay"
+                ).textContent = `Min Duration: ${minDuration} ms`;
+              }
+              updateHistogram();
             }
           }
         });
@@ -126,35 +143,39 @@
           ws.send("cancelAlarm");
         }
       }
-
       function setupHistogram() {
-        console.log(histogramChart);
-        if (histogramChart !== null) return; // Guard to ensure chart is initialized
+        if (histogramChart !== null) return; // Guard to ensure chart is initialized only once
 
         const ctx = document
           .getElementById("durationHistogram")
           .getContext("2d");
         histogramChart = new Chart(ctx, {
-          type: "bar",
+          type: "line",
           data: {
-            labels: [],
             datasets: [
               {
-                label: "Durations",
+                label: "",
                 data: [],
                 backgroundColor: "rgba(75, 192, 192, 0.2)",
                 borderColor: "rgba(75, 192, 192, 1)",
-                borderWidth: 1,
+                borderWidth: 2,
+                fill: false,
+                pointRadius: 0,
               },
             ],
           },
           options: {
-            responsive: false,
-            maintainAspectRatio: true, // Set this to true if you want to keep the aspect ratio
             scales: {
+              x: {
+                type: "linear",
+                display: false,
+              },
               y: {
-                type: 'logarithmic',
-                beginAtZero: true,
+                type: "logarithmic",
+                title: {
+                  display: true,
+                  text: "Duration (ms)",
+                },
               },
             },
           },
@@ -162,33 +183,14 @@
       }
 
       function updateHistogram() {
-        if (!histogramChart) return; // Guard to ensure chart is initialized
+        if (!histogramChart) return;
 
-        // Limit the number of durations to the latest 100 data points
-        if (durations.length > 10000) {
-          durations = durations.slice(-10000); // Keep only the last 100 entries
-        }
+        // Map endTimeDurations to chart data points
+        histogramChart.data.datasets[0].data = endTimeDurations.map((item) => ({
+          y: item.duration,
+          x: item.endTime,
+        }));
 
-        const maxDuration = Math.max(...durations);
-        const minDuration = Math.min(...durations);
-        const stepSize = Math.ceil((maxDuration - minDuration) / 10) || 1; // Ensure non-zero step size
-        const labels = Array.from(
-          { length: 200 },
-          (_, i) =>
-            `${minDuration + i * stepSize} to ${
-              minDuration + (i + 1) * stepSize
-            }`
-        );
-        const data = new Array(labels.length).fill(0);
-        durations.forEach((duration) => {
-          const index = Math.floor((duration - minDuration) / stepSize);
-          if (index < data.length) {
-            data[index]++;
-          }
-        });
-
-        histogramChart.data.labels = labels;
-        histogramChart.data.datasets[0].data = data;
         histogramChart.update();
       }
 
