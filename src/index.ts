@@ -65,15 +65,14 @@ class StorageTestDO implements DurableObject {
     while (i < this.#keySize) {
       //~20bytes of data x 100
       const data = JSON.stringify({
-        x: i,
-        y: i,
+        x: Math.random() * 1000,
+        y: Math.random() * 1000,
         data: "kifwpkieqojgsyqwodopjjtrhfndobkcbxzzgzdzxrqcqrcedrholhhdobkyasxupqqvjqrvszjktosodmxauaihmdzlsqbswavrkiwasytvkwhnmbkhcervqeikvcghehetllbzefglynjqtakadlggotqbfcymrmxfkexlwdibsmeabteyegvvwamudwfwpykzskla",
       });
       dataSize += new TextEncoder().encode(data).length; // Calculate and add the size of the current data.
       puts.push(
         this.#storage.put(i.toString(), data, {
           allowUnconfirmed: false,
-          noCache: true,
           allowConcurrency: true,
         })
       );
