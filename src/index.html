@@ -41,7 +41,7 @@
       <input
         type="number"
         id="nextAlarm"
-        value="86"
+        value="66"
         onchange="updateQueryParams('nextAlarm', this.value)"
       />
       <label for="roomIDInput">RoomID:</label>
@@ -83,7 +83,7 @@
       );
       document.getElementById("nextAlarm").value = getQueryParam(
         "nextAlarm",
-        "86"
+        "66"
       );
       globalThis.roomIDReady.then(() => {
         document.getElementById("roomIDInput").value = globalThis.roomID;

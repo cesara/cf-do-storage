@@ -42,7 +42,7 @@ class StorageTestDO implements DurableObject {
   #storage: DurableObjectStorage;
   #ws: WebSocket | null = null;
   #keySize = 100;
-  #nextAlarm = 86;
+  #nextAlarm = 66;
   constructor(state: DurableObjectState) {
     this._doID = crypto.randomUUID();
     this.#storage = state.storage;
@@ -109,7 +109,7 @@ class StorageTestDO implements DurableObject {
 
     const url = new URL(request.url);
     this.#keySize = parseInt(url.searchParams.get("keySize") ?? "100");
-    this.#nextAlarm = parseInt(url.searchParams.get("nextAlarm") ?? "86");
+    this.#nextAlarm = parseInt(url.searchParams.get("nextAlarm") ?? "66");
 
     const pair = new WebSocketPair();
     this.#ws = pair[1]; // Assign the WebSocket object to the class property.
