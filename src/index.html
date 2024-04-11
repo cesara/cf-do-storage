@@ -50,6 +50,10 @@
       <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
     <div>
+      <h2>Runtime</h2>
+      <div id="runtimeDisplay">Runtime: Not Calculated</div>
+    </div>
+    <div>
       <h2>Duration Histogram</h2>
       <div id="maxDurationDisplay">Max Duration: Not Calculated</div>
       <div id="minDurationDisplay">Min Duration: Not Calculated</div>
@@ -95,11 +99,20 @@
       }
 
       let ws;
-      let endTimeDurations = []; // Store pairs of {endTime, duration}
-      let histogramChart = null; // Global variable to hold the chart instance
-      let maxDuration = Number.MIN_VALUE; // Initialize max duration
-      let minDuration = Number.MAX_VALUE; // Initialize min duration
+      let endTimeDurations = []; 
+      let histogramChart = null; 
+      let maxDuration = Number.MIN_VALUE; 
+      let minDuration = Number.MAX_VALUE; 
+      let updateInterval = null;
+
       function testDoWebSocket() {
+        if (updateInterval) clearInterval(updateInterval); 
+        document.getElementById("runtimeDisplay").textContent = "Runtime: Not Calculated";
+        document.getElementById("maxDurationDisplay").textContent = "Max Duration: Not Calculated";
+        document.getElementById("minDurationDisplay").textContent = "Min Duration: Not Calculated";
+        maxDuration = Number.MIN_VALUE; 
+        minDuration = Number.MAX_VALUE; 
+        endTimeDurations = [];
         const wsUrl = new URL(location.href);
         wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
         wsUrl.pathname = "/do-websocket";
@@ -109,6 +122,11 @@
         wsUrl.searchParams.set("roomID", globalThis.roomID);
 
         ws = new WebSocket(wsUrl.toString());
+        const startTime = Date.now();
+        updateInterval = setInterval(() => {
+          const runtime = Date.now() - startTime;
+          document.getElementById("runtimeDisplay").textContent = `Runtime: ${runtime} ms`;
+        }, 1000);
         ws.addEventListener("message", async (e) => {
           if (e.data === "ping") {
             log(e.data);
@@ -120,6 +138,9 @@
                 endTime: data.endTime,
                 duration: data.duration,
               });
+              if (endTimeDurations.length > 10000) {
+                endTimeDurations.shift(); // Remove the oldest item
+              }
               if (data.duration > maxDuration) {
                 maxDuration = data.duration;
                 document.getElementById(
@@ -139,8 +160,10 @@
       }
 
       function cancelAlarm() {
+        if (updateInterval) clearInterval(updateInterval); // Stop the runtime update interval
         if (ws) {
           ws.send("cancelAlarm");
+          ws.close();
         }
       }
       function setupHistogram() {
