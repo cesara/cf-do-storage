@@ -2,6 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+      integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
     <script>
       globalThis.roomIDReady = new Promise((resolve) => {
         globalThis.resolveRoomID = resolve;
@@ -43,9 +49,16 @@
       <input type="button" value="Run Test" onclick="testDoWebSocket();" />
       <input type="button" value="Cancel Test" onclick="cancelAlarm();" />
     </div>
+    <div>
+      <h2>Duration Histogram</h2>
+      <canvas
+        id="durationHistogram"
+        style="width: 1000px; height: 200px; display: block"
+      ></canvas>
+    </div>
     <h2>Log (new messages are prepended)</h2>
     <pre id="log"></pre>
-    <textarea id="textLog" rows="40" cols="200" readonly></textarea>
+    <textarea id="textLog" rows="20" cols="200" readonly></textarea>
     <script>
       function updateQueryParams(param, value) {
         const url = new URL(window.location.href);
@@ -80,6 +93,8 @@
       }
 
       let ws;
+      let durations = [];
+      let histogramChart = null; // Global variable to hold the chart instance
 
       function testDoWebSocket() {
         const wsUrl = new URL(location.href);
@@ -96,6 +111,12 @@
             log(e.data);
           } else if (typeof e.data === "string") {
             log(e.data);
+            const data = JSON.parse(e.data);
+            console.log(data);
+            if (data.duration) {
+              durations.push(data.duration);
+              updateHistogram(durations);
+            }
           }
         });
       }
@@ -105,6 +126,74 @@
           ws.send("cancelAlarm");
         }
       }
+
+      function setupHistogram() {
+        console.log(histogramChart);
+        if (histogramChart !== null) return; // Guard to ensure chart is initialized
+
+        const ctx = document
+          .getElementById("durationHistogram")
+          .getContext("2d");
+        histogramChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Durations",
+                data: [],
+                backgroundColor: "rgba(75, 192, 192, 0.2)",
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: false,
+            maintainAspectRatio: true, // Set this to true if you want to keep the aspect ratio
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      }
+
+      function updateHistogram() {
+        if (!histogramChart) return; // Guard to ensure chart is initialized
+
+        // Limit the number of durations to the latest 100 data points
+        if (durations.length > 10000) {
+          durations = durations.slice(-10000); // Keep only the last 100 entries
+        }
+
+        const maxDuration = Math.max(...durations);
+        const minDuration = Math.min(...durations);
+        const stepSize = Math.ceil((maxDuration - minDuration) / 10) || 1; // Ensure non-zero step size
+        const labels = Array.from(
+          { length: 10 },
+          (_, i) =>
+            `${minDuration + i * stepSize} to ${
+              minDuration + (i + 1) * stepSize
+            }`
+        );
+        const data = new Array(labels.length).fill(0);
+        durations.forEach((duration) => {
+          const index = Math.floor((duration - minDuration) / stepSize);
+          if (index < data.length) {
+            data[index]++;
+          }
+        });
+
+        histogramChart.data.labels = labels;
+        histogramChart.data.datasets[0].data = data;
+        histogramChart.update();
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        setupHistogram(); // Initialize the chart when the document is ready
+      });
     </script>
   </body>
 </html>
