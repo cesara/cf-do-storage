@@ -48,15 +48,15 @@ class StorageTestDO implements DurableObject {
     const url = new URL(request.url);
     switch (url.pathname) {
       case "/do-websocket":
-        return this.handleWebSocketConnect(request, this._doID, this.#storage);
+        return this.handleWebSocketConnect(request, this._doID);
     }
     return new Response("Not Found", { status: 404 });
   }
 
   async alarm() {
     let i = 0;
-    let dataSize = 0; 
-    const startTime = Date.now(); 
+    let dataSize = 0;
+    const startTime = Date.now();
     while (i < 100) {
       //~20bytes of data x 100
       const data = JSON.stringify({
@@ -72,9 +72,11 @@ class StorageTestDO implements DurableObject {
     const endTime = Date.now();
     const duration = endTime - startTime;
     if (this.#ws) {
-      this.#ws.send(JSON.stringify({ dataSize, count: i, startTime, endTime, duration}));
+      this.#ws.send(
+        JSON.stringify({ dataSize, count: i, startTime, endTime, duration })
+      );
     }
-
+    console.log("alarm set", Date.now() + 86);
     this.#storage.setAlarm(Date.now() + 86);
   }
 
@@ -89,7 +91,7 @@ class StorageTestDO implements DurableObject {
 
   async handleWebSocketConnect(
     request: Request,
-    doID: string,
+    doID: string
   ): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected websocket", { status: 400 });
@@ -100,15 +102,24 @@ class StorageTestDO implements DurableObject {
     this.#ws.accept();
 
     this.#ws.addEventListener("message", async ({ data }) => {
-      if (data === "cancelAlarm") {      
-        await this.#storage.deleteAlarm(); 
-        if(this.#ws) this.#ws.send(JSON.stringify({ message: "Alarm cancelled." })); 
+      if (data === "cancelAlarm") {
+        await this.#storage.deleteAlarm();
+        if (this.#ws)
+          this.#ws.send(JSON.stringify({ message: "Alarm cancelled." }));
       }
+    });
+
+    this.#ws.addEventListener("close", async () => {
+      await this.#storage.deleteAlarm(); // Call to shut off the alarm
+      console.log("Connection closed, alarm shut off."); // Optional: Log or handle the closure
+      return;
     });
 
     this.#ws.send("Starting alarm...");
 
     let currentAlarm = await this.#storage.getAlarm();
+
+    this.#ws.send("Current Alarm: " + currentAlarm?.toString() ?? "null");
     if (currentAlarm == null) {
       this.#storage.setAlarm(Date.now() + 1);
       this.#ws.send(this.createResponseBody(doID, 0, Date.now(), Date.now()));
