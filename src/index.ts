@@ -43,6 +43,8 @@ class StorageTestDO implements DurableObject {
   #ws: WebSocket | null = null;
   #keySize = 100;
   #nextAlarm = 66;
+  #roomID = "";
+
   constructor(state: DurableObjectState) {
     this._doID = crypto.randomUUID();
     this.#storage = state.storage;
@@ -60,6 +62,8 @@ class StorageTestDO implements DurableObject {
   async alarm() {
     let i = 0;
     let dataSize = 0;
+    console.log("Alarm triggered", this._doID, this.#roomID)
+    if(!this.#roomID) return;
     const startTime = Date.now();
     const puts = [];
     while (i < this.#keySize) {
@@ -110,14 +114,14 @@ class StorageTestDO implements DurableObject {
     const url = new URL(request.url);
     this.#keySize = parseInt(url.searchParams.get("keySize") ?? "100");
     this.#nextAlarm = parseInt(url.searchParams.get("nextAlarm") ?? "66");
-
+    this.#roomID = url.searchParams.get("roomID") ?? "";
     const pair = new WebSocketPair();
     this.#ws = pair[1]; // Assign the WebSocket object to the class property.
-
     this.#ws.accept();
 
     this.#ws.addEventListener("message", async ({ data }) => {
       if (data === "cancelAlarm") {
+        this.#ws?.send(JSON.stringify({message: "cancelAlarm, alarm shut off."}));
         console.log("before cancelled  storage list:");
         console.log(await this.#storage.list());
         await this.#storage.deleteAlarm();
@@ -127,6 +131,7 @@ class StorageTestDO implements DurableObject {
     });
 
     this.#ws.addEventListener("close", async () => {
+      this.#ws?.send(JSON.stringify({message: "WS closed, alarm shut off."}));
       await this.#storage.deleteAlarm(); // Call to shut off the alarm
       console.log("Connection closed, alarm shut off."); // Optional: Log or handle the closure
       return;
