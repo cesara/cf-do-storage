@@ -44,7 +44,6 @@ class StorageTestDO implements DurableObject {
   #keySize = 100;
   #nextAlarm = 66;
   #roomID = "";
-
   constructor(state: DurableObjectState) {
     this._doID = crypto.randomUUID();
     this.#storage = state.storage;
@@ -64,6 +63,7 @@ class StorageTestDO implements DurableObject {
     let dataSize = 0;
     console.log("Alarm triggered", this._doID, this.#roomID)
     if(!this.#roomID) return;
+
     const startTime = Date.now();
     const puts = [];
     while (i < this.#keySize) {
@@ -86,10 +86,15 @@ class StorageTestDO implements DurableObject {
     await this.#storage.sync();
     const endTime = Date.now();
     const duration = endTime - startTime;
+    console.log({ dataSize, count: i, startTime, endTime, duration })
     if (this.#ws) {
       this.#ws.send(
         JSON.stringify({ dataSize, count: i, startTime, endTime, duration })
       );
+    }
+    if(this.#ws?.readyState !== WebSocket.OPEN) {
+      console.log("No WS connection, alarm shut off.");
+      return;
     }
     this.#storage.setAlarm(Date.now() + this.#nextAlarm);
   }
